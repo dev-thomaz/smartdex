@@ -98,77 +98,115 @@
   --type-bg: #6b7280;
   --type-fg: #fff;
 }
+:root {
+  --type-normal: #a3a39a;
+  --type-fire: #c2410c;
+  --type-water: #2563eb;
+  --type-electric: #facc15;
+  --type-grass: #15803d;
+  --type-ice: #7dd3fc;
+  --type-fighting: #b91c1c;
+  --type-poison: #7e22ce;
+  --type-ground: #c9a063;
+  --type-flying: #a5b4fc;
+  --type-psychic: #be185d;
+  --type-bug: #84a91a;
+  --type-rock: #b6a46c;
+  --type-ghost: #5b4b9a;
+  --type-dragon: #4338ca;
+  --type-dark: #44403c;
+  --type-steel: #a3b1c2;
+  --type-fairy: #f3a8cf;
+}
+
 [data-type="normal"] {
-  --type-bg: #a3a39a;
+  --type-bg: var(--type-normal);
   --type-fg: #141414;
 }
 [data-type="fire"] {
-  --type-bg: #c2410c;
+  --type-bg: var(--type-fire);
   --type-fg: #fff;
 }
 [data-type="water"] {
-  --type-bg: #2563eb;
+  --type-bg: var(--type-water);
   --type-fg: #fff;
 }
 [data-type="electric"] {
-  --type-bg: #facc15;
+  --type-bg: var(--type-electric);
   --type-fg: #141414;
 }
 [data-type="grass"] {
-  --type-bg: #15803d;
+  --type-bg: var(--type-grass);
   --type-fg: #fff;
 }
 [data-type="ice"] {
-  --type-bg: #7dd3fc;
+  --type-bg: var(--type-ice);
   --type-fg: #141414;
 }
 [data-type="fighting"] {
-  --type-bg: #b91c1c;
+  --type-bg: var(--type-fighting);
   --type-fg: #fff;
 }
 [data-type="poison"] {
-  --type-bg: #7e22ce;
+  --type-bg: var(--type-poison);
   --type-fg: #fff;
 }
 [data-type="ground"] {
-  --type-bg: #c9a063;
+  --type-bg: var(--type-ground);
   --type-fg: #141414;
 }
 [data-type="flying"] {
-  --type-bg: #a5b4fc;
+  --type-bg: var(--type-flying);
   --type-fg: #141414;
 }
 [data-type="psychic"] {
-  --type-bg: #be185d;
+  --type-bg: var(--type-psychic);
   --type-fg: #fff;
 }
 [data-type="bug"] {
-  --type-bg: #84a91a;
+  --type-bg: var(--type-bug);
   --type-fg: #141414;
 }
 [data-type="rock"] {
-  --type-bg: #b6a46c;
+  --type-bg: var(--type-rock);
   --type-fg: #141414;
 }
 [data-type="ghost"] {
-  --type-bg: #5b4b9a;
+  --type-bg: var(--type-ghost);
   --type-fg: #fff;
 }
 [data-type="dragon"] {
-  --type-bg: #4338ca;
+  --type-bg: var(--type-dragon);
   --type-fg: #fff;
 }
 [data-type="dark"] {
-  --type-bg: #44403c;
+  --type-bg: var(--type-dark);
   --type-fg: #fff;
 }
 [data-type="steel"] {
-  --type-bg: #a3b1c2;
+  --type-bg: var(--type-steel);
   --type-fg: #141414;
 }
 [data-type="fairy"] {
-  --type-bg: #f3a8cf;
+  --type-bg: var(--type-fairy);
   --type-fg: #141414;
+}
+
+/*
+ * Caught Pokémon card: tinted with its type colors (diagonal blend for dual
+ * types). Mixed with the card surface so text keeps AA contrast in both themes.
+ */
+.caught-surface {
+  --tint: 42%;
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--t1) var(--tint), var(--card)) 15%,
+    color-mix(in oklch, var(--t2) var(--tint), var(--card)) 85%
+  );
+  border-color: color-mix(in oklch, var(--t1) 60%, var(--border));
+}
+.dark .caught-surface {
+  --tint: 38%;
 }
 
 @layer base {

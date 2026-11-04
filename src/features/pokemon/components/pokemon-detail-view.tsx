@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 import { PokemonArtwork } from "@/components/pokemon/pokemon-artwork";
+import { PokeballIcon } from "@/components/pokemon/pokeball-icon";
 import { TypeList } from "@/components/pokemon/type-badge";
 import { CatchToggle } from "@/features/collection/components/catch-toggle";
 import {
@@ -84,7 +85,13 @@ export function PokemonDetailView({ game, detail }: { game: GameId; detail: Poke
 
       <section className="grid gap-6 rounded-3xl border bg-card p-5 shadow-(--shadow-card) sm:p-8 md:grid-cols-[minmax(0,18rem)_1fr] md:items-center">
         <div className="relative mx-auto grid aspect-square w-full max-w-64 place-items-center">
-          <div aria-hidden="true" className="absolute inset-4 rounded-full bg-muted" />
+          <div
+            aria-hidden="true"
+            className="absolute inset-4 grid place-items-center rounded-full bg-muted"
+          >
+            {/* Faint watermark: decorative, kept low-contrast so the artwork stays the focus. */}
+            <PokeballIcon variant="outline" className="size-[82%] text-foreground opacity-[0.07]" />
+          </div>
           <PokemonArtwork
             pokemonId={detail.pokemonId}
             name={detail.formLabel ? `${detail.name} (${detail.formLabel})` : detail.name}

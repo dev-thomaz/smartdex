@@ -1,6 +1,8 @@
 "use client";
 
-import { Check, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+
+import { PokeballIcon } from "@/components/pokemon/pokeball-icon";
 
 import { Button } from "@/components/ui/button";
 import type { GameId } from "@/features/games/config";
@@ -32,12 +34,11 @@ export function CatchToggle({
       variant="outline"
       className={cn(
         "h-12 gap-2 rounded-xl px-5 text-base font-bold",
-        caught &&
-          "border-caught bg-caught text-caught-foreground hover:bg-caught/90 hover:text-caught-foreground",
+        caught && "border-foreground/40 bg-accent hover:bg-accent/80",
       )}
     >
       {caught ? (
-        <Check className="size-5" strokeWidth={3} aria-hidden="true" />
+        <PokeballIcon className="size-6" />
       ) : (
         <Plus className="size-5" aria-hidden="true" />
       )}

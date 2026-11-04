@@ -1,10 +1,11 @@
 "use client";
 
-import { Check, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
-import { memo } from "react";
+import { memo, type CSSProperties } from "react";
 
 import { PokemonArtwork } from "@/components/pokemon/pokemon-artwork";
+import { PokeballIcon } from "@/components/pokemon/pokeball-icon";
 import { TypeList } from "@/components/pokemon/type-badge";
 import type { GameId } from "@/features/games/config";
 import { cn } from "@/lib/utils";
@@ -29,18 +30,29 @@ export const PokemonCard = memo(function PokemonCard({
   onToggle,
   priority,
 }: PokemonCardProps) {
+  // Type colors for the caught tint; single-type Pokémon get a flat tint.
+  const tint = {
+    "--t1": `var(--type-${entry.types[0]})`,
+    "--t2": `var(--type-${entry.types[1] ?? entry.types[0]})`,
+  } as CSSProperties;
   return (
     <li
+      style={caught ? tint : undefined}
       className={cn(
-        "group relative rounded-2xl border bg-card shadow-(--shadow-card) transition-[border-color,box-shadow] [contain-intrinsic-size:auto_232px] [content-visibility:auto] hover:border-foreground/20",
-        caught && "border-caught/60 ring-1 ring-caught/40",
+        "group relative rounded-2xl border bg-card shadow-(--shadow-card) transition-[border-color,box-shadow,background] [contain-intrinsic-size:auto_232px] [content-visibility:auto] hover:border-foreground/20",
+        caught && "caught-surface",
       )}
     >
       <Link
         href={`/${game}/pokemon/${entry.slug}`}
         className="flex h-full flex-col items-center gap-2 rounded-2xl px-3 pt-3 pb-4 outline-none focus-visible:ring-3 focus-visible:ring-ring"
       >
-        <span className="tabular self-start text-sm font-semibold text-muted-foreground">
+        <span
+          className={cn(
+            "tabular self-start text-sm font-semibold",
+            caught ? "text-foreground/80" : "text-muted-foreground",
+          )}
+        >
           {formatNumber(number)}
         </span>
         <PokemonArtwork
@@ -63,21 +75,16 @@ export const PokemonCard = memo(function PokemonCard({
         }
         className="absolute top-1.5 right-1.5 grid size-11 place-items-center rounded-full transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring"
       >
-        <span
-          aria-hidden="true"
-          className={cn(
-            "grid size-8 place-items-center rounded-full border-2 transition-all duration-150",
-            caught
-              ? "scale-100 border-caught bg-caught text-caught-foreground"
-              : "border-border bg-card text-muted-foreground group-hover:border-foreground/30 hover:text-foreground",
-          )}
-        >
-          {caught ? (
-            <Check className="size-4" strokeWidth={3} />
-          ) : (
+        {caught ? (
+          <PokeballIcon className="size-8 drop-shadow-sm transition-transform duration-150 motion-safe:animate-in motion-safe:zoom-in-75" />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="grid size-8 place-items-center rounded-full border-2 border-border bg-card text-muted-foreground transition-colors duration-150 group-hover:border-foreground/30 hover:text-foreground"
+          >
             <Plus className="size-4" strokeWidth={2.5} />
-          )}
-        </span>
+          </span>
+        )}
       </button>
     </li>
   );
