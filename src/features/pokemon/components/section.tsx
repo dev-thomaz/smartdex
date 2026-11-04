@@ -1,3 +1,4 @@
+import { Info } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
@@ -37,5 +38,15 @@ export function DetailSection({
       </div>
       {children}
     </section>
+  );
+}
+
+/** Honest note about missing or inherited PokéAPI data. */
+export function CoverageNote({ children }: { children: ReactNode }) {
+  return (
+    <p className="mb-4 flex items-start gap-2 rounded-2xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
+      <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
   );
 }

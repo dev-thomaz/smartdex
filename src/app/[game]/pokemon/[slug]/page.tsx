@@ -2,15 +2,25 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { getGame, isGameId } from "@/features/games/config";
-import { resolveEntry } from "@/features/pokedex/catalog";
+import { getDefaultPokedex, getGame, isGameId } from "@/features/games/config";
+import { getCatalog, resolveEntry } from "@/features/pokedex/catalog";
 import { PokemonDetailSkeleton } from "@/features/pokemon/components/pokemon-detail-skeleton";
 import { PokemonDetailView } from "@/features/pokemon/components/pokemon-detail-view";
 import { getPokemonDetail } from "@/features/pokemon/data";
 
-/** Starters are prerendered at build; other Pokémon render on first visit and are then cached. */
-export function generateStaticParams() {
-  return ["grookey", "scorbunny", "sobble"].map((slug) => ({ slug }));
+/**
+ * The first entry of each game's default dex is prerendered at build (keeps
+ * build-time PokéAPI traffic small); every other Pokémon renders on first
+ * visit and is then cached.
+ */
+export function generateStaticParams({ params }: { params: { game: string } }) {
+  if (!isGameId(params.game)) return [];
+  const game = getGame(params.game);
+  const dex = getDefaultPokedex(params.game).id;
+  const first = getCatalog(game.versionGroup)
+    .entries.filter((e) => e.dex[dex] !== undefined)
+    .sort((a, b) => a.dex[dex] - b.dex[dex])[0];
+  return first ? [{ slug: first.slug }] : [];
 }
 
 export async function generateMetadata({

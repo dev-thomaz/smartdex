@@ -74,10 +74,10 @@ describe("parseBackup", () => {
       app: "smartdex",
       schemaVersion: 1,
       exportedAt: "2026-01-01",
-      collections: { sword: { caught: [25] }, "legends-za": { caught: [1] } },
+      collections: { sword: { caught: [25] }, "pokemon-champions": { caught: [1] } },
     });
     const result = parseBackup(text);
-    expect(result).toMatchObject({ ok: true, backup: { ignoredGames: ["legends-za"] } });
+    expect(result).toMatchObject({ ok: true, backup: { ignoredGames: ["pokemon-champions"] } });
     if (result.ok) expect(result.backup.collections.sword?.updatedAt).toBe("2026-01-01");
   });
 });

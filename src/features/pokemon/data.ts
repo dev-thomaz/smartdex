@@ -2,7 +2,13 @@ import "server-only";
 
 import { cacheLife } from "next/cache";
 
-import { GAMES, getGame, getVersionGroup, type GameId } from "@/features/games/config";
+import {
+  GAMES,
+  getGame,
+  getVersionGroup,
+  mechanicsFor,
+  type GameId,
+} from "@/features/games/config";
 import { getCatalog, getMoveIndex, resolveEntry } from "@/features/pokedex/catalog";
 import {
   adaptAbilities,
@@ -86,11 +92,15 @@ export async function getPokemonDetail(
   const namesById = new Map(catalog.entries.map((e) => [e.id, e.name]));
   const moveNameBySlug = new Map(Object.values(moveIndex.moves).map((m) => [m.slug, m.name]));
 
-  const abilities = await Promise.all(
-    adaptAbilities(pokemon, vg.generation).map((a) =>
-      getAbilityInfo(a.slug, a.hidden, vg.learnsetVersionGroups),
-    ),
-  );
+  // Abilities exist from Gen III and hidden abilities from Gen V.
+  const mechanics = mechanicsFor(vg.generation);
+  const abilities = mechanics.abilities
+    ? await Promise.all(
+        adaptAbilities(pokemon, vg.generation)
+          .filter((a) => mechanics.hiddenAbilities || !a.hidden)
+          .map((a) => getAbilityInfo(a.slug, a.hidden, vg.learnsetVersionGroups)),
+      )
+    : [];
 
   const flavor = species.flavor_text_entries.find(
     (f) => f.language.name === ENGLISH && f.version.name === game.pokeapiVersion,

@@ -16,7 +16,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - **UI never reads raw PokéAPI JSON.** Fetch in `src/features/pokemon/data.ts` (server, `"use cache"`), validate with the Zod schemas in `src/lib/api/pokeapi/schemas.ts`, convert with the pure adapters in `src/lib/api/pokeapi/adapters.ts`, and render the types from `src/types/domain.ts`.
 - **Never mix generations.** Learnsets are filtered by the game's version groups; move values, types, stats and the type chart are resolved for the game's generation (`src/lib/api/pokeapi/resolve.ts`).
 - **Never invent Pokémon data.** If PokéAPI lacks something, show that it is missing.
-- Catalog data in `src/data/generated/` is produced by `pnpm data:generate`; do not hand-edit it.
+- Catalog data in `src/data/generated/` (catalogs, `library.json` with measured coverage, the `catalogs.ts` registry) is produced by `pnpm data:generate`; do not hand-edit it. Adding a game = config entry + regenerate.
+- Progress totals always come from a validated dex (`catalog.dexes[].size` / `library.json`), never from summing dexes or counting a generation. Collections are keyed by game id and store species ids.
+- Show PokéAPI gaps through `GameDataCoverage` (`src/features/library/coverage.ts`); never mark a game as complete or fill a gap with another game's data silently.
 - Persistence: bump `DB_VERSION` in `src/lib/storage/db.ts` and add an `upgrade` branch for schema changes; bump `BACKUP_SCHEMA_VERSION` and extend `migrateBackup` for backup format changes.
 - With Cache Components, read `params` inside `<Suspense>` (see `src/app/[game]/layout.tsx`) and keep `generateMetadata` free of `params` on fully static routes.
 - UI copy is pt-BR; Pokémon, move, ability and item names stay in English (as in the games).

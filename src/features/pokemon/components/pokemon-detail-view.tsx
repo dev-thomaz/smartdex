@@ -4,7 +4,14 @@ import Link from "next/link";
 import { PokemonArtwork } from "@/components/pokemon/pokemon-artwork";
 import { TypeList } from "@/components/pokemon/type-badge";
 import { CatchToggle } from "@/features/collection/components/catch-toggle";
-import { getGame, getVersionGroup, type GameId } from "@/features/games/config";
+import {
+  GENERATIONS,
+  getGame,
+  getVersionGroup,
+  mechanicsFor,
+  type GameId,
+} from "@/features/games/config";
+import { getLibraryGame } from "@/features/library/library";
 import { getNeighbors, resolveEntry } from "@/features/pokedex/catalog";
 import { formatNumber } from "@/features/pokedex/filters";
 import { formatHeight, formatWeight } from "@/lib/labels";
@@ -14,7 +21,7 @@ import type { PokemonDetail } from "@/types/domain";
 import { EncountersPanel } from "./encounters-panel";
 import { EvolutionTree, findParent } from "./evolution-tree";
 import { MovesPanel } from "./moves-panel";
-import { DetailSection } from "./section";
+import { CoverageNote, DetailSection } from "./section";
 import { StatsPanel } from "./stats-panel";
 import { TypeMatchups } from "./type-matchups";
 
@@ -29,6 +36,9 @@ const SECTIONS = [
 export function PokemonDetailView({ game, detail }: { game: GameId; detail: PokemonDetail }) {
   const config = getGame(game);
   const vg = getVersionGroup(config.versionGroup);
+  const mechanics = mechanicsFor(vg.generation);
+  const coverage = getLibraryGame(game)?.coverage ?? null;
+  const generationLabel = GENERATIONS[vg.generation]?.label ?? `Geração ${vg.generation}`;
   const resolved = resolveEntry(vg.id, detail.slug);
   const entry = resolved?.entry;
   const dexOrder = vg.pokedexes.map((d) => d.id);
@@ -157,12 +167,14 @@ export function PokemonDetailView({ game, detail }: { game: GameId; detail: Poke
               <dt className="text-sm text-muted-foreground">Peso</dt>
               <dd className="tabular font-bold">{formatWeight(detail.weightHg)}</dd>
             </div>
-            <div className="col-span-2 rounded-2xl bg-muted/60 px-4 py-3 xl:col-span-1">
-              <dt className="text-sm text-muted-foreground">Habilidades</dt>
-              <dd className="font-bold">
-                {detail.abilities.map((a) => a.name + (a.hidden ? " (oculta)" : "")).join(", ")}
-              </dd>
-            </div>
+            {mechanics.abilities && (
+              <div className="col-span-2 rounded-2xl bg-muted/60 px-4 py-3 xl:col-span-1">
+                <dt className="text-sm text-muted-foreground">Habilidades</dt>
+                <dd className="font-bold">
+                  {detail.abilities.map((a) => a.name + (a.hidden ? " (oculta)" : "")).join(", ")}
+                </dd>
+              </div>
+            )}
           </dl>
 
           {detail.flavorText && (
@@ -197,16 +209,33 @@ export function PokemonDetailView({ game, detail }: { game: GameId; detail: Poke
       <DetailSection
         id="golpes"
         title="Golpes"
-        description={`Apenas golpes de ${config.name}${vg.machineKinds.length ? ` (${vg.machineKinds.map((k) => k.label).join(" e ")} do jogo)` : ""}.`}
+        description={`Apenas golpes de ${config.name}, com os valores da ${generationLabel}.`}
       >
-        <MovesPanel moves={detail.moves} gameName={config.name} />
+        {coverage?.machines === "partial" && (
+          <CoverageNote>
+            A PokéAPI não informa o número de várias máquinas deste jogo; esses golpes aparecem como
+            “Máquinas” sem número.
+          </CoverageNote>
+        )}
+        <MovesPanel
+          moves={detail.moves}
+          gameName={config.name}
+          unavailable={coverage?.learnsets === "missing"}
+        />
       </DetailSection>
 
       <DetailSection
         id="evolucao"
         title="Evolução"
-        description={`Condições válidas em ${config.name}.`}
+        description={`Condições para ${config.name}, segundo a PokéAPI.`}
       >
+        {coverage?.evolutions === "inherited" && (
+          <CoverageNote>
+            A PokéAPI não tem registros de evolução próprios de {config.name}. As condições vêm do
+            registro mais recente de um jogo anterior (indicado abaixo de cada uma) e podem diferir
+            neste jogo.
+          </CoverageNote>
+        )}
         <EvolutionTree root={detail.evolution} game={game} currentId={detail.speciesId} />
       </DetailSection>
 
@@ -215,6 +244,12 @@ export function PokemonDetailView({ game, detail }: { game: GameId; detail: Poke
           <TypeMatchups types={detail.types} generation={vg.generation} />
         </DetailSection>
         <DetailSection id="atributos" title="Atributos base">
+          {!mechanics.splitSpecialStat && (
+            <CoverageNote>
+              Na Geração I havia um único atributo “Special”. A PokéAPI só fornece Ataque e Defesa
+              Especiais, então esses dois valores são os das gerações seguintes.
+            </CoverageNote>
+          )}
           <StatsPanel stats={detail.stats} />
         </DetailSection>
       </div>
@@ -222,7 +257,7 @@ export function PokemonDetailView({ game, detail }: { game: GameId; detail: Poke
       <DetailSection
         id="locais"
         title="Onde encontrar"
-        description={`Em ${config.name}, incluindo DLCs.`}
+        description={`Em ${config.name}${vg.pokedexes.some((d) => d.kind === "dlc") ? ", incluindo DLCs" : ""}.`}
       >
         <EncountersPanel
           encounters={detail.encounters}
@@ -230,6 +265,8 @@ export function PokemonDetailView({ game, detail }: { game: GameId; detail: Poke
           availability={entry?.availability ?? "regional"}
           preEvolution={parent?.name ?? null}
           siblingGames={detail.encountersInSiblingGames}
+          unavailable={coverage?.encounters === "missing"}
+          partial={coverage?.encounters === "partial"}
         />
       </DetailSection>
     </article>

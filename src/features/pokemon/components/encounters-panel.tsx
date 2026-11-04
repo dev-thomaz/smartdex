@@ -20,15 +20,24 @@ export function EncountersPanel({
   availability,
   preEvolution,
   siblingGames,
+  unavailable = false,
+  partial = false,
 }: {
   encounters: EncounterInfo[];
   gameName: string;
   availability: Availability;
   preEvolution: string | null;
   siblingGames: string[];
+  /** PokéAPI has no encounter data for this game at all. */
+  unavailable?: boolean;
+  /** PokéAPI encounter data for this game is known to be sparse. */
+  partial?: boolean;
 }) {
   const other: string[] = [];
   if (preEvolution) other.push(`Evoluindo ${preEvolution}.`);
+  if (availability === "national") {
+    other.push("Não faz parte da Pokédex regional; consta apenas na Pokédex Nacional deste jogo.");
+  }
   if (availability === "outside-dex") {
     other.push(
       "Fora das Pokédex regionais: compatível com o jogo, mas obtido por transferência (Pokémon HOME), eventos ou outros métodos especiais.",
@@ -42,7 +51,12 @@ export function EncountersPanel({
 
   return (
     <div className="flex flex-col gap-5">
-      {groups.length === 0 ? (
+      {unavailable ? (
+        <p className="text-muted-foreground">
+          A PokéAPI ainda não tem dados de localização de {gameName}. O SmartDex não preenche esses
+          locais por conta própria.
+        </p>
+      ) : groups.length === 0 ? (
         <p className="text-muted-foreground">
           A PokéAPI não registra encontros desta forma em {gameName}.
           {siblingGames.length > 0 && (
@@ -87,9 +101,13 @@ export function EncountersPanel({
           </ul>
         </div>
       )}
-      <p className="text-xs text-muted-foreground">
-        Locais e chances vêm da PokéAPI e podem estar incompletos para alguns métodos.
-      </p>
+      {!unavailable && (
+        <p className="text-xs text-muted-foreground">
+          {partial
+            ? `Os dados de localização de ${gameName} na PokéAPI são incompletos; muitos locais podem faltar.`
+            : "Locais e chances vêm da PokéAPI e podem estar incompletos para alguns métodos."}
+        </p>
+      )}
     </div>
   );
 }

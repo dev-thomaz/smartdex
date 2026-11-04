@@ -1,4 +1,4 @@
-import { ChartPie, LayoutGrid, Settings, type LucideIcon } from "lucide-react";
+import { ChartPie, Gamepad2, LayoutGrid, Settings, type LucideIcon } from "lucide-react";
 
 import type { GameId } from "@/features/games/config";
 
@@ -16,6 +16,12 @@ export const NAV_ITEMS: NavItem[] = [
     href: (game) => `/${game}`,
     isActive: (pathname, game) =>
       pathname === `/${game}` || pathname.startsWith(`/${game}/pokemon`),
+  },
+  {
+    label: "Jogos",
+    icon: Gamepad2,
+    href: () => "/jogos",
+    isActive: (pathname) => pathname.startsWith("/jogos"),
   },
   {
     label: "Progresso",

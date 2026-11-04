@@ -14,7 +14,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import type { GameId, PokedexSection } from "@/features/games/config";
+import type { GameId, GamePokedex } from "@/features/games/config";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { TYPE_LABELS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
@@ -95,16 +95,28 @@ export function SearchField({
 
 export function DexTabs({
   dexes,
+  sizes,
+  showAll,
   value,
   onChange,
 }: {
-  dexes: PokedexSection[];
+  dexes: GamePokedex[];
+  /** Validated species count per dex id. */
+  sizes: Record<string, number>;
+  /** Show the "all compatible" view (only when it adds species). */
+  showAll: boolean;
   value: string;
   onChange: (dex: string) => void;
 }) {
+  if (dexes.length === 1 && !showAll) return null;
   const options = [
-    ...dexes.map((d) => ({ id: d.id, label: d.shortLabel, dlc: d.kind === "dlc" })),
-    { id: ALL_DEX, label: "Todos compatíveis", dlc: false },
+    ...dexes.map((d) => ({
+      id: d.id,
+      label: d.shortLabel,
+      dlc: d.kind === "dlc",
+      size: sizes[d.id],
+    })),
+    ...(showAll ? [{ id: ALL_DEX, label: "Todos compatíveis", dlc: false, size: undefined }] : []),
   ];
   return (
     <div
@@ -123,6 +135,13 @@ export function DexTabs({
             className={cn(chipBase, "h-10", active ? chipActive : chipIdle)}
           >
             {option.label}
+            {option.size !== undefined && (
+              <span
+                className={cn("tabular text-xs", active ? "opacity-80" : "text-muted-foreground")}
+              >
+                {option.size}
+              </span>
+            )}
             {option.dlc && (
               <span
                 className={cn(

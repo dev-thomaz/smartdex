@@ -17,9 +17,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { VERSION_GROUPS, type VersionGroupConfig } from "../src/features/games/config";
+import {
+  GAMES,
+  VERSION_GROUPS,
+  type GameConfig,
+  type VersionGroupConfig,
+} from "../src/features/games/config";
 import {
   buildTypeChart,
+  machineLabel,
   resolveForGeneration,
   resolveMoveCategory,
   resolveMoveValues,
@@ -30,11 +36,15 @@ import {
   isTypeName,
   type Availability,
   type CatalogEntry,
-  type CatalogForm,
   type GameCatalog,
   type MoveCategory,
   type MoveIndex,
   type MoveInfo,
+  type CoverageLevel,
+  type CoverageMetrics,
+  type GameDataCoverage,
+  type LibraryFile,
+  type LibraryGame,
   type TypeChartFile,
   type TypeName,
   type VersionGroupFile,
@@ -89,9 +99,10 @@ interface TypeRow {
   typeefficacypasts: { damage_factor: number; target_type_id: number; generation_id: number }[];
 }
 
-async function loadReference() {
-  return gql<{ versiongroup: VersionGroupRow[]; type: TypeRow[] }>(`
+async function loadReference(): Promise<Reference> {
+  return gql<Reference>(`
     query {
+      pokemonspecies(order_by: { id: asc }) { id generation_id }
       versiongroup(order_by: { order: asc }) { id name order generation_id }
       type(where: { id: { _lt: 10000 } }) {
         id name generation_id
@@ -166,6 +177,7 @@ interface PokemonRow {
     is_mythical: boolean;
     pokemonspeciesnames: { name: string }[];
   };
+  pokemonmoves_aggregate: { aggregate: { count: number } };
 }
 
 function typesForGeneration(row: PokemonRow, generation: number): TypeName[] {
@@ -192,24 +204,79 @@ function formLabel(row: PokemonRow): string {
   return name || form?.form_name || row.name;
 }
 
-function isPreferredForm(row: PokemonRow, tag: string | undefined): boolean {
-  if (!tag || row.is_default) return false;
+const EXCLUDED_FORM_TAGS = ["gmax", "totem"];
+
+function isListedForm(row: PokemonRow): boolean {
   const parts = row.name.split("-");
-  return parts.includes(tag) && !parts.includes("gmax");
+  return !EXCLUDED_FORM_TAGS.some((tag) => parts.includes(tag));
 }
 
-async function buildCatalog(vg: VersionGroupConfig, vgRows: VersionGroupRow[]) {
-  const learnsetIds = vgRows
+function isPreferredForm(row: PokemonRow, tag: string | undefined): boolean {
+  if (!tag || row.is_default) return false;
+  return row.name.split("-").includes(tag) && isListedForm(row);
+}
+
+const restCache = new Map<string, Promise<RestPokedex>>();
+function fetchDex(name: string): Promise<RestPokedex> {
+  let promise = restCache.get(name);
+  if (!promise) {
+    promise = request<RestPokedex>(`${REST}/pokedex/${name}`);
+    restCache.set(name, promise);
+  }
+  return promise;
+}
+
+interface Reference {
+  versiongroup: VersionGroupRow[];
+  type: TypeRow[];
+  pokemonspecies: { id: number; generation_id: number }[];
+}
+
+/** speciesId → number shown, per dex id. */
+async function buildDexes(vg: VersionGroupConfig, reference: Reference) {
+  const result = new Map<string, Map<number, number>>();
+  for (const dex of vg.pokedexes) {
+    const numbers = new Map<number, number>();
+    if (dex.sources === "national") {
+      for (const s of reference.pokemonspecies) {
+        if (s.generation_id <= (vg.nationalDexGeneration ?? vg.generation)) numbers.set(s.id, s.id);
+      }
+    } else {
+      for (const source of dex.sources) {
+        const raw = await fetchDex(source);
+        for (const entry of raw.pokemon_entries) {
+          const speciesId = idFromUrl(entry.pokemon_species.url);
+          if (numbers.has(speciesId)) continue;
+          numbers.set(speciesId, dex.numbering === "national" ? speciesId : entry.entry_number);
+        }
+      }
+    }
+    result.set(dex.id, numbers);
+  }
+  return result;
+}
+
+function level(ratio: number, completeAt: number, total: number): CoverageLevel {
+  if (total === 0 || ratio === 0) return "missing";
+  return ratio >= completeAt ? "complete" : "partial";
+}
+
+async function buildCatalog(vg: VersionGroupConfig, reference: Reference) {
+  const learnsetIds = reference.versiongroup
     .filter((r) => vg.learnsetVersionGroups.includes(r.name))
     .map((r) => r.id);
-
-  const dexes = await Promise.all(
-    vg.pokedexes.map((d) => request<RestPokedex>(`${REST}/pokedex/${d.id}`)),
-  );
+  const dexes = await buildDexes(vg, reference);
+  const dexSpecies = [...new Set([...dexes.values()].flatMap((m) => [...m.keys()]))];
 
   const { pokemon } = await gql<{ pokemon: PokemonRow[] }>(
-    `query ($vgs: [Int!]) {
-      pokemon(where: { pokemonmoves: { version_group_id: { _in: $vgs } } }, order_by: { id: asc }) {
+    `query ($vgs: [Int!], $species: [Int!]) {
+      pokemon(
+        where: { _or: [
+          { pokemonmoves: { version_group_id: { _in: $vgs } } },
+          { pokemon_species_id: { _in: $species }, is_default: { _eq: true } }
+        ] },
+        order_by: { id: asc }
+      ) {
         id name is_default pokemon_species_id
         pokemontypes { slot type { name } }
         pokemontypepasts { generation_id slot type { name } }
@@ -218,9 +285,10 @@ async function buildCatalog(vg: VersionGroupConfig, vgRows: VersionGroupRow[]) {
           name is_legendary is_mythical
           pokemonspeciesnames(where: { language_id: { _eq: ${ENGLISH} } }) { name }
         }
+        pokemonmoves_aggregate(where: { version_group_id: { _in: $vgs } }) { aggregate { count } }
       }
     }`,
-    { vgs: learnsetIds },
+    { vgs: learnsetIds, species: dexSpecies },
   );
 
   const bySpecies = new Map<number, PokemonRow[]>();
@@ -230,45 +298,33 @@ async function buildCatalog(vg: VersionGroupConfig, vgRows: VersionGroupRow[]) {
     bySpecies.set(row.pokemon_species_id, list);
   }
 
-  const dexNumbers = new Map<number, Record<string, number>>();
-  vg.pokedexes.forEach((config, index) => {
-    for (const entry of dexes[index].pokemon_entries) {
-      const speciesId = idFromUrl(entry.pokemon_species.url);
-      const record = dexNumbers.get(speciesId) ?? {};
-      record[config.id] = entry.entry_number;
-      dexNumbers.set(speciesId, record);
-    }
-  });
-
-  const baseDexIds = new Set(vg.pokedexes.filter((d) => d.kind === "base").map((d) => d.id));
+  const kindOf = new Map(vg.pokedexes.map((d) => [d.id, d.kind]));
   const entries: CatalogEntry[] = [];
-  const missingFromLearnsets: number[] = [];
-
-  for (const speciesId of dexNumbers.keys()) {
-    if (!bySpecies.has(speciesId)) missingFromLearnsets.push(speciesId);
-  }
-
   for (const [speciesId, rows] of [...bySpecies.entries()].sort((a, b) => a[0] - b[0])) {
-    const dex = dexNumbers.get(speciesId) ?? {};
-    const dexIds = Object.keys(dex);
-    const availability: Availability = dexIds.some((id) => baseDexIds.has(id))
+    const dex: Record<string, number> = {};
+    for (const [dexId, numbers] of dexes) {
+      const n = numbers.get(speciesId);
+      if (n !== undefined) dex[dexId] = n;
+    }
+    const kinds = Object.keys(dex).map((id) => kindOf.get(id));
+    const withLearnset = rows.filter((r) => r.pokemonmoves_aggregate.aggregate.count > 0);
+    if (kinds.length === 0 && withLearnset.length === 0) continue;
+
+    const availability: Availability = kinds.some((k) => k === "base" || k === "area")
       ? "regional"
-      : dexIds.length > 0
+      : kinds.includes("dlc")
         ? "dlc"
-        : "outside-dex";
+        : kinds.includes("national")
+          ? "national"
+          : "outside-dex";
 
-    const forms: CatalogForm[] = rows
-      .filter((r) => !r.name.split("-").includes("gmax"))
-      .map((r) => ({
-        id: r.id,
-        slug: r.name,
-        label: formLabel(r),
-        types: typesForGeneration(r, vg.generation),
-      }));
-
+    const formRows = (
+      withLearnset.length > 0 ? withLearnset : rows.filter((r) => r.is_default)
+    ).filter(isListedForm);
     const display =
-      rows.find((r) => isPreferredForm(r, vg.preferredFormTag)) ??
-      rows.find((r) => r.is_default) ??
+      formRows.find((r) => isPreferredForm(r, vg.preferredFormTag)) ??
+      formRows.find((r) => r.is_default) ??
+      formRows[0] ??
       rows[0];
     const species = display.pokemonspecy;
 
@@ -280,16 +336,24 @@ async function buildCatalog(vg: VersionGroupConfig, vgRows: VersionGroupRow[]) {
       artId: display.id,
       dex,
       availability,
-      forms,
+      hasLearnset: withLearnset.length > 0,
+      forms: (formRows.length > 0 ? formRows : [display]).map((r) => ({
+        id: r.id,
+        slug: r.name,
+        label: formLabel(r),
+        types: typesForGeneration(r, vg.generation),
+      })),
       legendary: species.is_legendary,
       mythical: species.is_mythical,
     });
   }
 
-  if (missingFromLearnsets.length > 0) {
+  const inCatalog = new Set(entries.map((e) => e.id));
+  const missing = dexSpecies.filter((id) => !inCatalog.has(id));
+  if (missing.length > 0) {
     console.warn(
-      `[${vg.id}] ${missingFromLearnsets.length} dex species have no learnset in PokéAPI:`,
-      missingFromLearnsets.join(", "),
+      `[${vg.id}] ${missing.length} dex species missing from PokéAPI pokemon data:`,
+      missing.join(", "),
     );
   }
 
@@ -298,9 +362,76 @@ async function buildCatalog(vg: VersionGroupConfig, vgRows: VersionGroupRow[]) {
     versionGroup: vg.id,
     generatedAt: new Date().toISOString(),
     source: "PokéAPI (graphql.pokeapi.co/v1beta2 + pokeapi.co/api/v2/pokedex)",
+    dexes: vg.pokedexes.map((d) => ({
+      id: d.id,
+      size: entries.filter((e) => e.dex[d.id] !== undefined).length,
+    })),
+    hasOutsideDex: entries.some((e) => e.availability === "outside-dex"),
     entries,
   };
-  return catalog;
+  const dexSet = new Set(dexSpecies);
+  const speciesWithLearnset = entries.filter((e) => dexSet.has(e.id) && e.hasLearnset).length;
+  return { catalog, dexSpeciesCount: dexSpecies.length, speciesWithLearnset };
+}
+
+async function measureGame(
+  game: GameConfig,
+  vg: VersionGroupConfig,
+  dexSpeciesCount: number,
+  speciesWithLearnset: number,
+  machines: { machineMoves: number; withoutLabel: number; records: number },
+) {
+  const data = await gql<{
+    encounters: { aggregate: { count: number } };
+    flavor: { aggregate: { count: number } };
+    evolutions: { aggregate: { count: number } };
+    cover: { id: number }[];
+  }>(
+    `query ($versions: [String!], $flavorVersion: String!, $vgs: [String!], $cover: String!) {
+      encounters: pokemonspecies_aggregate(where: { pokemons: { encounters: { version: { name: { _in: $versions } } } } }) { aggregate { count } }
+      flavor: pokemonspeciesflavortext_aggregate(where: { version: { name: { _eq: $flavorVersion } }, language_id: { _eq: ${ENGLISH} } }) { aggregate { count } }
+      evolutions: pokemonevolution_aggregate(where: { versiongroup: { name: { _in: $vgs } } }) { aggregate { count } }
+      cover: pokemon(where: { name: { _eq: $cover } }) { id }
+    }`,
+    {
+      versions: game.encounterVersions,
+      flavorVersion: game.pokeapiVersion,
+      vgs: vg.learnsetVersionGroups,
+      cover: game.coverPokemon,
+    },
+  );
+  const metrics: CoverageMetrics = {
+    dexSpecies: dexSpeciesCount,
+    speciesWithLearnset,
+    machineMoves: machines.machineMoves,
+    machineMovesWithoutLabel: machines.withoutLabel,
+    evolutionRecords: data.evolutions.aggregate.count,
+    speciesWithEncounters: data.encounters.aggregate.count,
+    flavorTexts: data.flavor.aggregate.count,
+  };
+  const coverage: GameDataCoverage = {
+    pokedex: dexSpeciesCount > 0 ? "complete" : "missing",
+    learnsets: level(speciesWithLearnset / Math.max(dexSpeciesCount, 1), 0.98, dexSpeciesCount),
+    machines:
+      machines.machineMoves === 0 && machines.records === 0
+        ? "not-applicable"
+        : machines.machineMoves === 0
+          ? "missing"
+          : machines.withoutLabel === 0
+            ? "complete"
+            : "partial",
+    evolutions: metrics.evolutionRecords > 0 ? "recorded" : "inherited",
+    encounters: level(
+      metrics.speciesWithEncounters / Math.max(dexSpeciesCount, 1),
+      0.3,
+      dexSpeciesCount,
+    ),
+    flavorText: level(metrics.flavorTexts / Math.max(dexSpeciesCount, 1), 0.95, dexSpeciesCount),
+  };
+  if (data.cover.length === 0)
+    console.warn(`[${game.id}] cover Pokémon "${game.coverPokemon}" not found`);
+  const result: LibraryGame = { coverPokemonId: data.cover[0]?.id ?? null, coverage, metrics };
+  return result;
 }
 
 interface MoveRow {
@@ -331,8 +462,15 @@ interface MachineRow {
 async function buildMoveIndex(vg: VersionGroupConfig, vgRows: VersionGroupRow[]) {
   const learnset = vgRows.filter((r) => vg.learnsetVersionGroups.includes(r.name));
   const learnsetIds = learnset.map((r) => r.id);
-  const targetOrder = Math.min(...learnset.map((r) => r.order));
+  const targetOrder = learnset.length ? Math.min(...learnset.map((r) => r.order)) : 0;
   const orderById = new Map(vgRows.map((r) => [r.id, r.order]));
+
+  const machineLearnMoves = await gql<{ pokemonmove: { move_id: number }[] }>(
+    `query ($vgs: [Int!]) {
+      pokemonmove(where: { version_group_id: { _in: $vgs }, movelearnmethod: { name: { _eq: "machine" } } }, distinct_on: move_id) { move_id }
+    }`,
+    { vgs: learnsetIds },
+  );
 
   const { move, machine } = await gql<{ move: MoveRow[]; machine: MachineRow[] }>(
     `query ($vgs: [Int!]) {
@@ -380,11 +518,8 @@ async function buildMoveIndex(vg: VersionGroupConfig, vgRows: VersionGroupRow[])
 
   const machines: Record<string, string> = {};
   for (const row of machine) {
-    const item = row.item?.name;
-    if (!item) continue;
-    const kind = vg.machineKinds.find((k) => item.startsWith(k.itemPrefix));
-    if (!kind) continue;
-    machines[String(row.move_id)] = `${kind.label}${item.slice(kind.itemPrefix.length)}`;
+    const label = row.item ? machineLabel(row.item.name, vg.generation) : null;
+    if (label) machines[String(row.move_id)] = label;
   }
 
   const index: MoveIndex = {
@@ -394,7 +529,12 @@ async function buildMoveIndex(vg: VersionGroupConfig, vgRows: VersionGroupRow[])
     moves,
     machines,
   };
-  return index;
+  const machineMoveIds = new Set(machineLearnMoves.pokemonmove.map((m) => m.move_id));
+  const withoutLabel = [...machineMoveIds].filter((id) => !machines[String(id)]).length;
+  return {
+    index,
+    machineStats: { machineMoves: machineMoveIds.size, withoutLabel, records: machine.length },
+  };
 }
 
 async function writeJson(file: string, data: unknown) {
@@ -405,8 +545,8 @@ async function writeJson(file: string, data: unknown) {
 
 async function main() {
   const reference = await loadReference();
-  const groups = Object.values(VERSION_GROUPS);
-  const generations = [...new Set(groups.map((g) => g.generation))];
+  const groups = Object.values(VERSION_GROUPS) as VersionGroupConfig[];
+  const generations = [...new Set(groups.map((g) => g.generation))].sort((a, b) => a - b);
 
   await writeJson(
     path.join(OUT_DIR, "type-chart.json"),
@@ -424,17 +564,67 @@ async function main() {
   };
   await writeJson(path.join(OUT_DIR, "version-groups.json"), versionGroups);
 
+  const library: LibraryFile = {
+    schemaVersion: SCHEMA_VERSION,
+    generatedAt: new Date().toISOString(),
+    versionGroups: {},
+    games: {},
+  };
+
   for (const vg of groups) {
-    const [catalog, moves] = await Promise.all([
-      buildCatalog(vg, reference.versiongroup),
-      buildMoveIndex(vg, reference.versiongroup),
-    ]);
+    const [{ catalog, dexSpeciesCount, speciesWithLearnset }, { index, machineStats }] =
+      await Promise.all([buildCatalog(vg, reference), buildMoveIndex(vg, reference.versiongroup)]);
     console.log(
-      `[${vg.id}] ${catalog.entries.length} species, ${Object.keys(moves.moves).length} moves, ${Object.keys(moves.machines).length} machines`,
+      `[${vg.id}] ${catalog.entries.length} species, dexes ${catalog.dexes.map((d) => `${d.id}=${d.size}`).join(" ")}, ${Object.keys(index.moves).length} moves, ${Object.keys(index.machines).length} machines`,
     );
     await writeJson(path.join(OUT_DIR, vg.id, "catalog.json"), catalog);
-    await writeJson(path.join(OUT_DIR, vg.id, "moves.json"), moves);
+    await writeJson(path.join(OUT_DIR, vg.id, "moves.json"), index);
+
+    const defaultDex = vg.pokedexes[0].id;
+    library.versionGroups[vg.id] = {
+      dexes: catalog.dexes,
+      defaultDexSpecies: catalog.entries
+        .filter((e) => e.dex[defaultDex] !== undefined)
+        .map((e) => e.id),
+    };
+    for (const game of Object.values(GAMES).filter((g) => g.versionGroup === vg.id)) {
+      library.games[game.id] = await measureGame(
+        game,
+        vg,
+        dexSpeciesCount,
+        speciesWithLearnset,
+        machineStats,
+      );
+    }
   }
+
+  await writeJson(path.join(OUT_DIR, "library.json"), library);
+  await writeFile(path.join(OUT_DIR, "catalogs.ts"), catalogRegistrySource(groups), "utf8");
+  console.log("wrote src/data/generated/catalogs.ts");
+}
+
+/** Static import registry so the server bundle includes exactly the generated catalogs. */
+function catalogRegistrySource(groups: VersionGroupConfig[]): string {
+  const id = (vg: string) => vg.replace(/[^a-z0-9]/gi, "_");
+  const lines = [
+    "// Generated by scripts/generate-data.ts — do not edit.",
+    'import type { GameCatalog, MoveIndex } from "@/types/domain";',
+    "",
+    ...groups.flatMap((g) => [
+      `import ${id(g.id)}Catalog from "./${g.id}/catalog.json";`,
+      `import ${id(g.id)}Moves from "./${g.id}/moves.json";`,
+    ]),
+    "",
+    "export const CATALOGS: Record<string, GameCatalog> = {",
+    ...groups.map((g) => `  "${g.id}": ${id(g.id)}Catalog as unknown as GameCatalog,`),
+    "};",
+    "",
+    "export const MOVE_INDEXES: Record<string, MoveIndex> = {",
+    ...groups.map((g) => `  "${g.id}": ${id(g.id)}Moves as unknown as MoveIndex,`),
+    "};",
+    "",
+  ];
+  return lines.join("\n");
 }
 
 main().catch((error: unknown) => {

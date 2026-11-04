@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchX } from "lucide-react";
+import { Info, SearchX } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { GAMES, getGameVersionGroup } from "@/features/games/config";
 import { useCaughtSet, useCollectionStore } from "@/stores/collection-store";
 import { defaultViewFor, usePreferencesStore } from "@/stores/preferences-store";
 
+import { coverageNotices } from "@/features/library/coverage";
+
 import { useCatalog } from "../catalog-context";
 import { ALL_DEX, displayNumber, filterEntries, type PokedexView as View } from "../filters";
 import { ActiveFilters, DexTabs, FilterSheet, SearchField, StatusChips } from "./pokedex-toolbar";
@@ -18,8 +20,10 @@ import { PokemonCard } from "./pokemon-card";
 const PAGE_SIZE = 48;
 
 export function PokedexView() {
-  const { game, entries } = useCatalog();
+  const { game, entries, dexes: dexSizes, hasOutsideDex, coverage } = useCatalog();
   const dexes = getGameVersionGroup(game).pokedexes;
+  const sizes = Object.fromEntries(dexSizes.map((d) => [d.id, d.size]));
+  const notices = coverageNotices(coverage);
   const storedView = usePreferencesStore((s) => s.views[game]);
   const query = usePreferencesStore((s) => s.queries[game] ?? "");
   const updateView = usePreferencesStore((s) => s.updateView);
@@ -33,9 +37,10 @@ export function PokedexView() {
     const fallback = defaultViewFor(game);
     if (!storedView) return fallback;
     // Ignore a stored dex id that no longer exists for this game.
-    const validDex = storedView.dex === ALL_DEX || dexes.some((d) => d.id === storedView.dex);
+    const validDex =
+      (storedView.dex === ALL_DEX && hasOutsideDex) || dexes.some((d) => d.id === storedView.dex);
     return validDex ? storedView : { ...storedView, dex: fallback.dex };
-  }, [storedView, game, dexes]);
+  }, [storedView, game, dexes, hasOutsideDex]);
 
   const deferredQuery = useDeferredValue(query);
   const filtered = useMemo(
@@ -90,12 +95,28 @@ export function PokedexView() {
         <ProgressMeter label="Capturados" progress={progress} className="w-full lg:max-w-sm" />
       </header>
 
+      {notices.length > 0 && (
+        <p className="flex items-start gap-2 rounded-2xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
+          <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span>
+            <strong className="text-foreground">Dados parciais neste jogo.</strong>{" "}
+            {notices.map((n) => n.text).join(" ")} A Pokédex e o progresso funcionam normalmente.
+          </span>
+        </p>
+      )}
+
       <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-20 -mx-4 flex flex-col gap-3 border-b bg-background/95 px-4 pt-2 pb-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-10 lg:px-10">
         <div className="flex gap-2">
           <SearchField game={game} value={query} onChange={(q) => setQuery(game, q)} />
           <FilterSheet view={view} onChange={(patch) => updateView(game, patch)} />
         </div>
-        <DexTabs dexes={dexes} value={view.dex} onChange={(dex) => updateView(game, { dex })} />
+        <DexTabs
+          dexes={dexes}
+          sizes={sizes}
+          showAll={hasOutsideDex}
+          value={view.dex}
+          onChange={(dex) => updateView(game, { dex })}
+        />
       </div>
 
       <div className="flex flex-col gap-3">

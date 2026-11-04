@@ -119,3 +119,12 @@ export function buildTypeChart(
   }
   return chart;
 }
+
+const MACHINE_ITEM = /^(tm|hm|tr)(\d+)$/;
+
+/** PokéAPI machine item → in-game label: "tm08" → "TM08"; Gen IX uses three digits ("TM001"). */
+export function machineLabel(item: string, generation: number): string | null {
+  const match = item.match(MACHINE_ITEM);
+  if (!match) return null;
+  return `${match[1].toUpperCase()}${match[2].padStart(generation >= 9 ? 3 : 2, "0")}`;
+}

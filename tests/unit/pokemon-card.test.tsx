@@ -18,6 +18,7 @@ const eevee: CardEntry = {
   artId: 133,
   dex: { galar: 196 },
   availability: "regional",
+  hasLearnset: true,
   legendary: false,
   mythical: false,
 };

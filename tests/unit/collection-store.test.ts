@@ -76,3 +76,22 @@ describe("import", () => {
     expect(snapshot.shield?.caught).toEqual([7]);
   });
 });
+
+describe("independent progress across versions", () => {
+  it("catching in FireRed does not mark LeafGreen", async () => {
+    await store().setCaught("firered", 6, true);
+    await reopen();
+    expect(store().caught.firered?.has(6)).toBe(true);
+    expect(store().caught.leafgreen?.has(6) ?? false).toBe(false);
+  });
+
+  it("import keeps each game's progress separate", async () => {
+    await store().importCollections(
+      { firered: { caught: [1, 2], updatedAt: "x" }, leafgreen: { caught: [3], updatedAt: "x" } },
+      "replace",
+    );
+    await reopen();
+    expect([...(store().caught.firered ?? [])].sort()).toEqual([1, 2]);
+    expect([...(store().caught.leafgreen ?? [])]).toEqual([3]);
+  });
+});

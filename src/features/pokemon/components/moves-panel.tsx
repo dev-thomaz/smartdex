@@ -89,7 +89,16 @@ function matches(move: LearnedMove, query: string): boolean {
   );
 }
 
-export function MovesPanel({ moves, gameName }: { moves: LearnedMove[]; gameName: string }) {
+export function MovesPanel({
+  moves,
+  gameName,
+  unavailable = false,
+}: {
+  moves: LearnedMove[];
+  gameName: string;
+  /** The game has no learnset data at all in PokéAPI. */
+  unavailable?: boolean;
+}) {
   const tabs = useMemo(() => buildMoveTabs(moves), [moves]);
   const [activeId, setActiveId] = useState(tabs[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -98,7 +107,9 @@ export function MovesPanel({ moves, gameName }: { moves: LearnedMove[]; gameName
   if (tabs.length === 0) {
     return (
       <p className="text-muted-foreground">
-        A PokéAPI não lista movimentos desta forma em {gameName}.
+        {unavailable
+          ? `A PokéAPI ainda não tem os golpes de ${gameName}. Eles aparecerão aqui quando estiverem disponíveis.`
+          : `A PokéAPI não lista golpes desta forma em ${gameName}.`}
       </p>
     );
   }

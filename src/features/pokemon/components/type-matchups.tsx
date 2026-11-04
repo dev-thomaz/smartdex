@@ -1,4 +1,5 @@
 import { TypeBadge } from "@/components/pokemon/type-badge";
+import { mechanicsFor } from "@/features/games/config";
 import type { TypeName } from "@/types/domain";
 
 import {
@@ -46,8 +47,9 @@ export function TypeMatchups({ types, generation }: { types: TypeName[]; generat
       <Group title="Resistente a" items={profile.resistances} empty="Nenhuma resistência." />
       <Group title="Imune a" items={profile.immunities} empty="Nenhuma imunidade." />
       <p className="text-xs text-muted-foreground">
-        Dano recebido de golpes de cada tipo, pela tabela da Geração {generation}. Habilidades (como
-        Levitate) podem alterar estes valores.
+        Dano recebido de golpes de cada tipo, pela tabela da Geração {generation}.
+        {mechanicsFor(generation).abilities &&
+          " Habilidades (como Levitate) podem alterar estes valores."}
       </p>
     </div>
   );

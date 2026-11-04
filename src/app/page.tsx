@@ -1,6 +1,7 @@
-import { GameChooser } from "@/components/layout/game-chooser";
+import { HomeEntry } from "@/features/library/components/home-entry";
+import { getLibraryCards } from "@/features/library/library";
 
-/** Reopens the last selected game; first visit shows a one-tap game choice. */
+/** First visit: the game library. Later visits: reopen the last Pokédex. */
 export default function HomePage() {
-  return <GameChooser />;
+  return <HomeEntry cards={getLibraryCards()} />;
 }

@@ -4,12 +4,17 @@ Pokédex web multijogo. Você escolhe o jogo uma vez e toda a aplicação passa 
 daquela versão: golpes por nível, TMs e TRs, evoluções, fraquezas, locais de encontro e o seu
 progresso de capturas.
 
-O MVP suporta **Pokémon Sword** e **Pokémon Shield** (incluindo as DLCs _The Isle of Armor_ e _The
-Crown Tundra_). A arquitetura já é multijogo.
+Suporta os **41 jogos da linha principal**, de Red/Green (Japão, 1996) a Legends: Z-A (2025),
+organizados por geração, cada um com sua(s) Pokédex (regional, DLC, áreas e Nacional da época) e seu
+próprio progresso. Spin-offs (Colosseum, XD, GO, Mystery Dungeon, Unite, Champions) ficam de fora.
 
 ## Funcionalidades
 
-- **Pokédex por jogo**: Galar, Isle of Armor, Crown Tundra ou todos os Pokémon compatíveis com o jogo.
+- **Biblioteca de jogos** (`/jogos`): cards por geração com ilustração, progresso
+  `obtidos / total` da Pokédex padrão, porcentagem, busca por nome e filtro por geração. A primeira
+  visita abre a biblioteca; depois o SmartDex reabre o último jogo.
+- **Pokédex por jogo**: todas as Pokédex do jogo (ex.: Kanto e Nacional em FireRed; Galar, Isle of
+  Armor e Crown Tundra em Sword) e, quando existirem, os compatíveis fora delas.
 - **Busca instantânea** por nome ou número (regional ou nacional) e **busca global** com atalho para
   qualquer Pokémon.
 - **Filtros**: capturados, faltando, tipo (até 2 combinados) e ordem numérica ou alfabética. Os
@@ -64,7 +69,7 @@ PokéAPI ──► adapters (puros, testados) ──► domínio (src/types/doma
 
 ```
 src/
-├── app/                      # Rotas: /, /[game], /[game]/pokemon/[slug], /[game]/progresso, /[game]/ajustes
+├── app/                      # Rotas: /, /jogos, /[game], /[game]/pokemon/[slug], /[game]/progresso, /[game]/ajustes
 ├── components/
 │   ├── layout/               # Shell: sidebar, header e navegação inferior, seletor de jogo, busca global
 │   ├── pokemon/              # Peças visuais compartilhadas (badge de tipo, arte)
@@ -72,7 +77,8 @@ src/
 │   └── ui/                   # shadcn/ui
 ├── data/generated/           # Catálogos gerados por scripts/generate-data.ts (versionados)
 ├── features/
-│   ├── games/config.ts       # Configuração central por jogo/grupo de versões
+│   ├── games/config.ts       # Configuração central: 41 jogos, grupos de versão, Pokédex, mecânicas
+│   ├── library/              # Biblioteca de jogos: dados, cobertura, filtros e cards
 │   ├── pokedex/              # Catálogo, filtros/busca (puros) e a tela da Pokédex
 │   ├── pokemon/              # Carregamento do detalhe, tipos e componentes da página
 │   └── collection/           # Progresso, backup e telas de Progresso/Ajustes
@@ -114,11 +120,18 @@ src/
 
 ## Dados e limitações conhecidas
 
+A cobertura da PokéAPI varia por jogo e é **medida** pelo gerador (`library.json`). Cards e páginas
+mostram "Dados parciais" e avisos por seção em vez de preencher lacunas. Principais lacunas hoje:
+sem golpes em Legends: Z-A; sem locais em BDSP, Legends: Arceus, Scarlet/Violet e Z-A; números de
+máquina incompletos em BDSP; evoluções herdadas de jogos anteriores em vários títulos. As capas são
+ilustrações com artes oficiais da PokéAPI (não há fonte licenciada de box art).
+
 - Fonte: [PokéAPI](https://pokeapi.co). Nomes de Pokémon, golpes, habilidades e itens ficam em inglês,
   como nos jogos Sword/Shield; a interface é em português.
 - Locais de encontro vêm da PokéAPI e podem estar incompletos para alguns métodos. Quando não há
   dados, a página diz isso em vez de preencher.
-- O progresso é por **espécie** (formas regionais não são marcadas separadamente).
+- O progresso é por **espécie e por jogo** (formas regionais não são marcadas separadamente). Uma
+  captura conta em todas as Pokédex daquele jogo em que a espécie aparece, e em nenhum outro jogo.
 - O controle de capturas é do SmartDex e não tem relação com o Pokémon HOME.
 - O progresso fica no navegador; use **Ajustes → Backup** para levar a outro aparelho.
 
@@ -131,10 +144,10 @@ pnpm test        # inclui verificações de integridade do catálogo
 
 ## Adicionar um jogo
 
-1. Adicione o grupo de versões em `VERSION_GROUPS` e os jogos em `GAMES` (`src/features/games/config.ts`).
-2. Rode `pnpm data:generate` para gerar `src/data/generated/<grupo>/`.
-3. Registre os arquivos gerados em `src/features/pokedex/catalog.ts`.
-4. Rode `pnpm check` e `pnpm build`.
+1. Adicione o grupo de versões em `VERSION_GROUPS` e o jogo na lista de `src/features/games/config.ts`.
+2. Rode `pnpm data:generate` (gera catálogos, `library.json` com a cobertura e o registro
+   `catalogs.ts`).
+3. Rode `pnpm check` e `pnpm build`.
 
 ## Deploy
 

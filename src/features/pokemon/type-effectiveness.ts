@@ -1,7 +1,7 @@
 import typeChartFile from "@/data/generated/type-chart.json";
 import type { TypeChart, TypeChartFile, TypeName } from "@/types/domain";
 
-const chartFile = typeChartFile as TypeChartFile;
+const chartFile = typeChartFile as unknown as TypeChartFile;
 
 export interface GenerationTypeChart {
   types: TypeName[];
