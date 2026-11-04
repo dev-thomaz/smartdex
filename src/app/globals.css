@@ -1,0 +1,219 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-sans);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-caught: var(--caught);
+  --color-caught-foreground: var(--caught-foreground);
+  --color-surface: var(--surface);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 16px -6px oklch(0 0 0 / 0.08);
+}
+
+/*
+ * SmartDex palette. Neutral, slightly cool surfaces; one warm brand red used
+ * for primary actions; green reserved for "caught". All text pairs target
+ * WCAG 2.2 AA (≥ 4.5:1).
+ */
+:root {
+  --background: oklch(0.982 0.002 250);
+  --surface: oklch(0.965 0.003 250);
+  --foreground: oklch(0.21 0.015 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.015 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.015 260);
+  --primary: oklch(0.52 0.19 25);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.004 250);
+  --secondary-foreground: oklch(0.25 0.015 260);
+  --muted: oklch(0.95 0.004 250);
+  --muted-foreground: oklch(0.45 0.015 260);
+  --accent: oklch(0.94 0.006 250);
+  --accent-foreground: oklch(0.21 0.015 260);
+  --destructive: oklch(0.53 0.21 27);
+  --border: oklch(0.9 0.006 250);
+  --input: oklch(0.88 0.006 250);
+  --ring: oklch(0.52 0.19 25);
+  --caught: oklch(0.5 0.13 155);
+  --caught-foreground: oklch(0.99 0 0);
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: oklch(0.165 0.008 260);
+  --surface: oklch(0.19 0.009 260);
+  --foreground: oklch(0.955 0.004 260);
+  --card: oklch(0.205 0.01 260);
+  --card-foreground: oklch(0.955 0.004 260);
+  --popover: oklch(0.225 0.01 260);
+  --popover-foreground: oklch(0.955 0.004 260);
+  --primary: oklch(0.7 0.16 25);
+  --primary-foreground: oklch(0.17 0.01 260);
+  --secondary: oklch(0.26 0.01 260);
+  --secondary-foreground: oklch(0.955 0.004 260);
+  --muted: oklch(0.25 0.01 260);
+  --muted-foreground: oklch(0.74 0.01 260);
+  --accent: oklch(0.27 0.012 260);
+  --accent-foreground: oklch(0.955 0.004 260);
+  --destructive: oklch(0.7 0.18 22);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.7 0.16 25);
+  --caught: oklch(0.74 0.15 155);
+  --caught-foreground: oklch(0.17 0.01 260);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3);
+}
+
+/* Type colors: solid chips with a foreground chosen for ≥ 4.5:1 contrast. */
+[data-type] {
+  --type-bg: #6b7280;
+  --type-fg: #fff;
+}
+[data-type="normal"] {
+  --type-bg: #a3a39a;
+  --type-fg: #141414;
+}
+[data-type="fire"] {
+  --type-bg: #c2410c;
+  --type-fg: #fff;
+}
+[data-type="water"] {
+  --type-bg: #2563eb;
+  --type-fg: #fff;
+}
+[data-type="electric"] {
+  --type-bg: #facc15;
+  --type-fg: #141414;
+}
+[data-type="grass"] {
+  --type-bg: #15803d;
+  --type-fg: #fff;
+}
+[data-type="ice"] {
+  --type-bg: #7dd3fc;
+  --type-fg: #141414;
+}
+[data-type="fighting"] {
+  --type-bg: #b91c1c;
+  --type-fg: #fff;
+}
+[data-type="poison"] {
+  --type-bg: #7e22ce;
+  --type-fg: #fff;
+}
+[data-type="ground"] {
+  --type-bg: #c9a063;
+  --type-fg: #141414;
+}
+[data-type="flying"] {
+  --type-bg: #a5b4fc;
+  --type-fg: #141414;
+}
+[data-type="psychic"] {
+  --type-bg: #be185d;
+  --type-fg: #fff;
+}
+[data-type="bug"] {
+  --type-bg: #84a91a;
+  --type-fg: #141414;
+}
+[data-type="rock"] {
+  --type-bg: #b6a46c;
+  --type-fg: #141414;
+}
+[data-type="ghost"] {
+  --type-bg: #5b4b9a;
+  --type-fg: #fff;
+}
+[data-type="dragon"] {
+  --type-bg: #4338ca;
+  --type-fg: #fff;
+}
+[data-type="dark"] {
+  --type-bg: #44403c;
+  --type-fg: #fff;
+}
+[data-type="steel"] {
+  --type-bg: #a3b1c2;
+  --type-fg: #141414;
+}
+[data-type="fairy"] {
+  --type-bg: #f3a8cf;
+  --type-fg: #141414;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Generous spacing helps readers with dyslexia. */
+    line-height: 1.6;
+    letter-spacing: 0.005em;
+    word-spacing: 0.04em;
+  }
+  h1,
+  h2,
+  h3 {
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* Tabular digits keep numbers aligned in tables and stats. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
