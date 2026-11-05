@@ -38,6 +38,7 @@ async function GameScope({
       entries={getCardEntries(versionGroup)}
       dexes={catalog.dexes}
       hasOutsideDex={catalog.hasOutsideDex}
+      exclusives={catalog.exclusives}
       coverage={getLibraryGame(game)?.coverage ?? null}
     >
       <GameTracker game={game} />

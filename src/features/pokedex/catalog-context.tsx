@@ -3,7 +3,12 @@
 import { createContext, useContext, type ReactNode } from "react";
 
 import type { GameId } from "@/features/games/config";
-import type { CatalogEntry, GameDataCoverage, PokedexSummary } from "@/types/domain";
+import type {
+  CatalogEntry,
+  ExclusivesStatus,
+  GameDataCoverage,
+  PokedexSummary,
+} from "@/types/domain";
 
 /** Slim catalog entry shipped to the client (no form list). */
 export type CardEntry = Omit<CatalogEntry, "forms">;
@@ -14,6 +19,7 @@ export interface CatalogContextValue {
   dexes: PokedexSummary[];
   /** Whether the "all compatible" view adds species beyond the listed dexes. */
   hasOutsideDex: boolean;
+  exclusives: ExclusivesStatus;
   coverage: GameDataCoverage | null;
 }
 

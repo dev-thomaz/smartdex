@@ -6,8 +6,10 @@ import { PokeballIcon } from "@/components/pokemon/pokeball-icon";
 import { TypeList } from "@/components/pokemon/type-badge";
 import { CatchToggle } from "@/features/collection/components/catch-toggle";
 import {
+  GAMES,
   GENERATIONS,
   getGame,
+  isGameId,
   getVersionGroup,
   mechanicsFor,
   type GameId,
@@ -124,6 +126,13 @@ export function PokemonDetailView({ game, detail }: { game: GameId; detail: Poke
           <TypeList types={detail.types} />
           <div className="flex flex-wrap items-center gap-3">
             <CatchToggle game={game} speciesId={detail.speciesId} name={detail.name} />
+            {entry?.exclusiveTo && isGameId(entry.exclusiveTo) && (
+              <span className="rounded-lg bg-secondary px-2.5 py-1 text-sm font-semibold">
+                {entry.exclusiveTo === game
+                  ? `Exclusivo de ${config.name}`
+                  : `Exclusivo de ${GAMES[entry.exclusiveTo].name}`}
+              </span>
+            )}
             {entry?.availability === "dlc" && (
               <span className="rounded-lg bg-secondary px-2.5 py-1 text-sm font-semibold">
                 Conteúdo DLC

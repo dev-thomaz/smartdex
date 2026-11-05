@@ -46,6 +46,52 @@ describe("generated Sword/Shield catalog", () => {
     expect(moves["53"]).toMatchObject({ power: 90, pp: 15 });
   });
 
+  it("derives Sword/Shield exclusives from encounters, including evolutions and DLC", () => {
+    const sword = [
+      "deino",
+      "hydreigon",
+      "jangmo-o",
+      "sirfetchd",
+      "stonjourner",
+      "zacian",
+      "clauncher",
+      "ho-oh",
+    ];
+    const shield = [
+      "larvitar",
+      "tyranitar",
+      "goomy",
+      "cursola",
+      "eiscue",
+      "zamazenta",
+      "gible",
+      "lugia",
+    ];
+    for (const s of sword) expect(bySlug(s)?.exclusiveTo, s).toBe("sword");
+    for (const s of shield) expect(bySlug(s)?.exclusiveTo, s).toBe("shield");
+    expect(bySlug("eevee")?.exclusiveTo).toBeUndefined();
+    expect(catalog.exclusives).toBe("available");
+  });
+
+  it("reports exclusives per game status", () => {
+    const exclusivesOf = (vg: string, game: string) =>
+      getCatalog(vg)
+        .entries.filter((e) => e.exclusiveTo === game)
+        .map((e) => e.slug);
+    expect(exclusivesOf("red-blue", "red")).toEqual(
+      expect.arrayContaining(["ekans", "oddish", "mankey", "growlithe", "scyther", "electabuzz"]),
+    );
+    expect(exclusivesOf("red-blue", "blue")).toEqual(
+      expect.arrayContaining(["sandshrew", "vulpix", "meowth", "bellsprout", "magmar", "pinsir"]),
+    );
+    // Friend Safari is ignored, so X/Y keep their classic exclusives.
+    expect(exclusivesOf("x-y", "y")).toEqual(
+      expect.arrayContaining(["larvitar", "tyranitar", "heracross"]),
+    );
+    expect(getCatalog("yellow").exclusives).toBe("single-version");
+    expect(getCatalog("scarlet-violet").exclusives).toBe("no-encounter-data");
+  });
+
   it("finds neighbors in the regional dex", () => {
     const n = getNeighbors("sword-shield", ["galar", "isle-of-armor", "crown-tundra"], 811);
     expect(n.previous?.slug).toBe("grookey");

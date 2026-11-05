@@ -8,6 +8,7 @@ import {
   formatNumber,
   matchesQuery,
   normalizeSearch,
+  pokedexViewSchema,
   toggleType,
   type FilterableEntry,
   type PokedexQuery,
@@ -28,7 +29,14 @@ const entries: FilterableEntry[] = [
   { id: 151, slug: "mew", name: "Mew", types: ["psychic"], dex: {} },
 ];
 
-const base: PokedexQuery = { dex: "galar", status: "all", types: [], sort: "dex", query: "" };
+const base: PokedexQuery = {
+  dex: "galar",
+  status: "all",
+  types: [],
+  sort: "dex",
+  version: "all",
+  query: "",
+};
 const names = (list: FilterableEntry[]) => list.map((e) => e.name);
 
 describe("search", () => {
@@ -105,10 +113,65 @@ describe("filters", () => {
   });
 
   it("counts active filters", () => {
-    expect(countActiveFilters({ dex: "galar", status: "all", types: [], sort: "dex" }, "")).toBe(0);
     expect(
-      countActiveFilters({ dex: "galar", status: "missing", types: ["fire"], sort: "dex" }, "char"),
-    ).toBe(3);
+      countActiveFilters(
+        { dex: "galar", status: "all", types: [], sort: "dex", version: "all" },
+        "",
+      ),
+    ).toBe(0);
+    expect(
+      countActiveFilters(
+        { dex: "galar", status: "missing", types: ["fire"], sort: "dex", version: "mine" },
+        "char",
+      ),
+    ).toBe(4);
+  });
+});
+
+describe("version exclusives", () => {
+  const list: FilterableEntry[] = [
+    {
+      id: 1,
+      slug: "deino",
+      name: "Deino",
+      types: ["dark", "dragon"],
+      dex: { galar: 1 },
+      exclusiveTo: "sword",
+    },
+    {
+      id: 2,
+      slug: "larvitar",
+      name: "Larvitar",
+      types: ["rock", "ground"],
+      dex: { galar: 2 },
+      exclusiveTo: "shield",
+    },
+    { id: 3, slug: "eevee", name: "Eevee", types: ["normal"], dex: { galar: 3 } },
+  ];
+  const q = (version: "all" | "mine" | "other", game = "sword"): PokedexQuery => ({
+    ...base,
+    version,
+    game,
+  });
+
+  it("shows only the current version's exclusives", () => {
+    expect(names(filterEntries(list, q("mine"), new Set()))).toEqual(["Deino"]);
+    expect(names(filterEntries(list, q("mine", "shield"), new Set()))).toEqual(["Larvitar"]);
+  });
+
+  it("shows only the opposite version's exclusives", () => {
+    expect(names(filterEntries(list, q("other"), new Set()))).toEqual(["Larvitar"]);
+  });
+
+  it("keeps everything when the filter is off or the game is unknown", () => {
+    expect(filterEntries(list, q("all"), new Set())).toHaveLength(3);
+    expect(filterEntries(list, { ...base, version: "mine" }, new Set())).toHaveLength(3);
+  });
+
+  it("migrates views stored before the version filter existed", () => {
+    expect(
+      pokedexViewSchema.parse({ dex: "galar", status: "all", types: [], sort: "dex" }).version,
+    ).toBe("all");
   });
 });
 

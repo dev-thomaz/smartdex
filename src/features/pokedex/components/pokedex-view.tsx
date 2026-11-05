@@ -6,21 +6,36 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import { Button } from "@/components/ui/button";
 import { ProgressMeter } from "@/features/collection/components/progress-meter";
 import { computeProgress } from "@/features/collection/progress";
-import { GAMES, getGameVersionGroup } from "@/features/games/config";
+import { GAMES, getGameVersionGroup, getSiblingGames } from "@/features/games/config";
 import { useCaughtSet, useCollectionStore } from "@/stores/collection-store";
 import { defaultViewFor, usePreferencesStore } from "@/stores/preferences-store";
 
 import { coverageNotices } from "@/features/library/coverage";
 
 import { useCatalog } from "../catalog-context";
-import { ALL_DEX, displayNumber, filterEntries, type PokedexView as View } from "../filters";
-import { ActiveFilters, DexTabs, FilterSheet, SearchField, StatusChips } from "./pokedex-toolbar";
+import {
+  ALL_DEX,
+  displayNumber,
+  filterEntries,
+  inDex,
+  matchesVersion,
+  type PokedexView as View,
+} from "../filters";
+import {
+  ActiveFilters,
+  DexTabs,
+  FilterSheet,
+  SearchField,
+  StatusChips,
+  VersionChips,
+} from "./pokedex-toolbar";
 import { PokemonCard } from "./pokemon-card";
 
 const PAGE_SIZE = 48;
 
 export function PokedexView() {
-  const { game, entries, dexes: dexSizes, hasOutsideDex, coverage } = useCatalog();
+  const { game, entries, dexes: dexSizes, hasOutsideDex, exclusives, coverage } = useCatalog();
+  const siblings = getSiblingGames(game);
   const dexes = getGameVersionGroup(game).pokedexes;
   const sizes = Object.fromEntries(dexSizes.map((d) => [d.id, d.size]));
   const notices = coverageNotices(coverage);
@@ -39,13 +54,14 @@ export function PokedexView() {
     // Ignore a stored dex id that no longer exists for this game.
     const validDex =
       (storedView.dex === ALL_DEX && hasOutsideDex) || dexes.some((d) => d.id === storedView.dex);
-    return validDex ? storedView : { ...storedView, dex: fallback.dex };
-  }, [storedView, game, dexes, hasOutsideDex]);
+    const version = exclusives === "available" ? storedView.version : "all";
+    return validDex ? { ...storedView, version } : { ...storedView, version, dex: fallback.dex };
+  }, [storedView, game, dexes, hasOutsideDex, exclusives]);
 
   const deferredQuery = useDeferredValue(query);
   const filtered = useMemo(
-    () => filterEntries(entries, { ...view, query: deferredQuery }, caught),
-    [entries, view, deferredQuery, caught],
+    () => filterEntries(entries, { ...view, query: deferredQuery, game }, caught),
+    [entries, view, deferredQuery, caught, game],
   );
 
   const progress = useMemo(
@@ -57,7 +73,24 @@ export function PokedexView() {
   );
 
   // Incremental rendering: show PAGE_SIZE cards, add more near the end.
-  const filterKey = `${game}|${view.dex}|${view.status}|${view.types.join(",")}|${view.sort}|${deferredQuery}`;
+  const filterKey = `${game}|${view.dex}|${view.status}|${view.version}|${view.types.join(",")}|${view.sort}|${deferredQuery}`;
+
+  // Version exclusives inside the selected dex (counts shown on the chips).
+  const versionOptions = useMemo(() => {
+    if (exclusives !== "available") return [];
+    const inView = entries.filter((e) => inDex(e, view.dex));
+    const count = (v: "mine" | "other") => inView.filter((e) => matchesVersion(e, v, game)).length;
+    const otherName = siblings.length === 1 ? siblings[0].shortName : "outras versões";
+    return [
+      { value: "all" as const, label: "Todas as versões" },
+      { value: "mine" as const, label: `Só em ${GAMES[game].shortName}`, count: count("mine") },
+      { value: "other" as const, label: `Só em ${otherName}`, count: count("other") },
+    ];
+  }, [exclusives, entries, view.dex, game, siblings]);
+  const versionLabel =
+    view.version !== "all" && exclusives === "available"
+      ? versionOptions.find((o) => o.value === view.version)?.label
+      : undefined;
   const [paging, setPaging] = useState({ key: filterKey, count: PAGE_SIZE });
   const count = paging.key === filterKey ? paging.count : PAGE_SIZE;
   const visible = filtered.slice(0, count);
@@ -121,11 +154,26 @@ export function PokedexView() {
 
       <div className="flex flex-col gap-3">
         <StatusChips value={view.status} onChange={(status) => updateView(game, { status })} />
+        {versionOptions.length > 0 && (
+          <VersionChips
+            options={versionOptions}
+            value={view.version}
+            onChange={(version) => updateView(game, { version })}
+          />
+        )}
+        {exclusives === "no-encounter-data" && (
+          <p className="text-sm text-muted-foreground">
+            Exclusivos de versão indisponíveis: a PokéAPI não tem dados de encontro suficientes
+            deste jogo.
+          </p>
+        )}
         <ActiveFilters
           view={view}
           query={query}
           onRemoveType={(type) => updateView(game, { types: view.types.filter((t) => t !== type) })}
           onClearQuery={() => setQuery(game, "")}
+          versionLabel={versionLabel}
+          onClearVersion={() => updateView(game, { version: "all" })}
           onReset={() => resetView(game)}
         />
         <p className="text-sm text-muted-foreground" aria-live="polite">

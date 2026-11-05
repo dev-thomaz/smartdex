@@ -28,6 +28,7 @@ import {
   type PokedexView,
   type SortOrder,
   type StatusFilter,
+  type VersionFilter,
 } from "../filters";
 
 const chipBase =
@@ -193,6 +194,54 @@ export function StatusChips({
   );
 }
 
+export interface VersionOption {
+  value: VersionFilter;
+  label: string;
+  count?: number;
+}
+
+/** "Todas as versões / Só em Sword / Só em Shield" — only shown when exclusives are known. */
+export function VersionChips({
+  options,
+  value,
+  onChange,
+}: {
+  options: VersionOption[];
+  value: VersionFilter;
+  onChange: (value: VersionFilter) => void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Exclusivos de versão"
+      className="-mx-1 flex [scrollbar-width:none] gap-2 overflow-x-auto px-1 pb-0.5"
+    >
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(option.value)}
+            className={cn(chipBase, active ? chipActive : chipIdle)}
+          >
+            {option.label}
+            {option.count !== undefined && (
+              <span
+                className={cn("tabular text-xs", active ? "opacity-80" : "text-muted-foreground")}
+              >
+                {option.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const SORT_OPTIONS: { value: SortOrder; label: string; icon: typeof ArrowDown01 }[] = [
   { value: "dex", label: "Número", icon: ArrowDown01 },
   { value: "name", label: "Nome (A–Z)", icon: ArrowDownAZ },
@@ -319,18 +368,27 @@ export function FilterSheet({
 export function ActiveFilters({
   view,
   query,
+  versionLabel,
   onRemoveType,
   onClearQuery,
+  onClearVersion,
   onReset,
 }: {
   view: PokedexView;
   query: string;
+  /** Label of the active version filter, if any. */
+  versionLabel?: string;
+  onClearVersion: () => void;
   onRemoveType: (type: TypeName) => void;
   onClearQuery: () => void;
   onReset: () => void;
 }) {
   const hasAny =
-    view.types.length > 0 || query.trim() !== "" || view.sort !== "dex" || view.status !== "all";
+    view.types.length > 0 ||
+    query.trim() !== "" ||
+    view.sort !== "dex" ||
+    view.status !== "all" ||
+    view.version !== "all";
   if (!hasAny) return null;
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label="Filtros ativos">
@@ -356,6 +414,16 @@ export function ActiveFilters({
           <X className="-ml-0.5 size-4 text-muted-foreground" aria-hidden="true" />
         </button>
       ))}
+      {versionLabel && (
+        <button
+          type="button"
+          onClick={onClearVersion}
+          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-secondary px-3 text-sm font-semibold"
+          aria-label={`Remover filtro ${versionLabel}`}
+        >
+          {versionLabel} <X className="size-4" aria-hidden="true" />
+        </button>
+      )}
       {view.sort === "name" && (
         <span className="inline-flex h-9 items-center rounded-full bg-secondary px-3 text-sm font-semibold">
           Ordem A–Z

@@ -66,6 +66,11 @@ export interface CatalogEntry {
   availability: Availability;
   /** False when PokéAPI has no learnset for this species in the game. */
   hasLearnset: boolean;
+  /**
+   * Game id (version) where this species is exclusive, among the versions of
+   * the same version group. Absent when shared or when exclusives are unknown.
+   */
+  exclusiveTo?: string;
   /** Forms (PokéAPI varieties) with a learnset in this game (default form if none). */
   forms: CatalogForm[];
   legendary: boolean;
@@ -87,8 +92,17 @@ export interface GameCatalog {
   dexes: PokedexSummary[];
   /** True when some compatible species belong to no dex (shows the "all compatible" view). */
   hasOutsideDex: boolean;
+  exclusives: ExclusivesStatus;
   entries: CatalogEntry[];
 }
+
+/**
+ * Whether version exclusives could be derived for this version group.
+ * - `available`: computed from per-version encounters.
+ * - `single-version`: only one game uses this data (no exclusives exist).
+ * - `no-encounter-data`: PokéAPI lacks reliable encounters, so exclusives are unknown.
+ */
+export type ExclusivesStatus = "available" | "single-version" | "no-encounter-data";
 
 export type CoverageLevel = "complete" | "partial" | "missing";
 

@@ -55,6 +55,7 @@ export function getCardEntries(versionGroup: VersionGroupId): CardEntry[] {
     dex: e.dex,
     availability: e.availability,
     hasLearnset: e.hasLearnset,
+    ...(e.exclusiveTo ? { exclusiveTo: e.exclusiveTo } : {}),
     legendary: e.legendary,
     mythical: e.mythical,
   }));

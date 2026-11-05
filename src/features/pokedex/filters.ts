@@ -12,29 +12,39 @@ export const ALL_DEX = "all";
 
 export const statusFilterSchema = z.enum(["all", "caught", "missing"]);
 export const sortOrderSchema = z.enum(["dex", "name"]);
+/** `mine`: exclusive to the game being played; `other`: exclusive to a sibling version. */
+export const versionFilterSchema = z.enum(["all", "mine", "other"]);
 
 export const pokedexViewSchema = z.object({
   dex: z.string().min(1),
   status: statusFilterSchema,
   types: z.array(z.enum(TYPE_NAMES)).max(2),
   sort: sortOrderSchema,
+  // Added after v1 shipped: default keeps previously stored views valid.
+  version: versionFilterSchema.default("all"),
 });
 
 export type StatusFilter = z.infer<typeof statusFilterSchema>;
 export type SortOrder = z.infer<typeof sortOrderSchema>;
+export type VersionFilter = z.infer<typeof versionFilterSchema>;
 export type PokedexView = z.infer<typeof pokedexViewSchema>;
 
 /** Minimum entry shape the list logic needs. */
-export type FilterableEntry = Pick<CatalogEntry, "id" | "slug" | "name" | "types" | "dex">;
+export type FilterableEntry = Pick<
+  CatalogEntry,
+  "id" | "slug" | "name" | "types" | "dex" | "exclusiveTo"
+>;
 
 export interface PokedexQuery extends PokedexView {
   query: string;
+  /** Game being played; required for the version filter. */
+  game?: string;
 }
 
 export const MAX_TYPE_FILTERS = 2;
 
 export function defaultView(defaultDex: string): PokedexView {
-  return { dex: defaultDex, status: "all", types: [], sort: "dex" };
+  return { dex: defaultDex, status: "all", types: [], sort: "dex", version: "all" };
 }
 
 /** Lowercase, strip accents and punctuation: "Mr. Mime" → "mrmime". */
@@ -87,6 +97,16 @@ export function matchesStatus(
   return status === "caught" ? isCaught : !isCaught;
 }
 
+export function matchesVersion(
+  entry: FilterableEntry,
+  version: VersionFilter,
+  game: string | undefined,
+): boolean {
+  if (version === "all" || !game) return true;
+  if (version === "mine") return entry.exclusiveTo === game;
+  return entry.exclusiveTo !== undefined && entry.exclusiveTo !== game;
+}
+
 export function filterEntries<T extends FilterableEntry>(
   entries: readonly T[],
   query: PokedexQuery,
@@ -97,6 +117,7 @@ export function filterEntries<T extends FilterableEntry>(
       inDex(entry, query.dex) &&
       matchesStatus(entry, query.status, caught) &&
       matchesTypes(entry, query.types) &&
+      matchesVersion(entry, query.version, query.game) &&
       matchesQuery(entry, query.dex, query.query),
   );
   if (query.sort === "name") {
@@ -114,5 +135,10 @@ export function toggleType(selected: readonly TypeName[], type: TypeName): TypeN
 }
 
 export function countActiveFilters(view: PokedexView, query: string): number {
-  return (view.status !== "all" ? 1 : 0) + view.types.length + (query.trim() ? 1 : 0);
+  return (
+    (view.status !== "all" ? 1 : 0) +
+    (view.version !== "all" ? 1 : 0) +
+    view.types.length +
+    (query.trim() ? 1 : 0)
+  );
 }

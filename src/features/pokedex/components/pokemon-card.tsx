@@ -7,7 +7,7 @@ import { memo, type CSSProperties } from "react";
 import { PokemonArtwork } from "@/components/pokemon/pokemon-artwork";
 import { PokeballIcon } from "@/components/pokemon/pokeball-icon";
 import { TypeList } from "@/components/pokemon/type-badge";
-import type { GameId } from "@/features/games/config";
+import { GAMES, isGameId, type GameId } from "@/features/games/config";
 import { cn } from "@/lib/utils";
 
 import type { CardEntry } from "../catalog-context";
@@ -65,6 +65,7 @@ export const PokemonCard = memo(function PokemonCard({
         />
         <span className="w-full truncate text-center text-base font-bold">{entry.name}</span>
         <TypeList types={entry.types} size="sm" className="justify-center" />
+        <ExclusiveTag game={game} exclusiveTo={entry.exclusiveTo} />
       </Link>
       <button
         type="button"
@@ -89,3 +90,21 @@ export const PokemonCard = memo(function PokemonCard({
     </li>
   );
 });
+
+/** "Exclusivo" for the game being played, "Só em X" for a sibling version. Text, not color. */
+export function ExclusiveTag({ game, exclusiveTo }: { game: GameId; exclusiveTo?: string }) {
+  if (!exclusiveTo || !isGameId(exclusiveTo)) return null;
+  const mine = exclusiveTo === game;
+  return (
+    <span
+      className={cn(
+        "rounded-md px-2 py-0.5 text-xs font-bold",
+        mine
+          ? "bg-foreground text-background"
+          : "border border-dashed border-foreground/40 text-foreground/80",
+      )}
+    >
+      {mine ? `Exclusivo de ${GAMES[game].shortName}` : `Só em ${GAMES[exclusiveTo].shortName}`}
+    </span>
+  );
+}

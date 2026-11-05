@@ -102,7 +102,7 @@ interface TypeRow {
 async function loadReference(): Promise<Reference> {
   return gql<Reference>(`
     query {
-      pokemonspecies(order_by: { id: asc }) { id generation_id }
+      pokemonspecies(order_by: { id: asc }) { id generation_id evolves_from_species_id }
       versiongroup(order_by: { order: asc }) { id name order generation_id }
       type(where: { id: { _lt: 10000 } }) {
         id name generation_id
@@ -229,7 +229,62 @@ function fetchDex(name: string): Promise<RestPokedex> {
 interface Reference {
   versiongroup: VersionGroupRow[];
   type: TypeRow[];
-  pokemonspecies: { id: number; generation_id: number }[];
+  pokemonspecies: { id: number; generation_id: number; evolves_from_species_id: number | null }[];
+}
+
+/**
+ * Species obtainable in each game, from PokéAPI encounters. A species counts
+ * when it or one of its pre-evolutions can be encountered (evolving keeps it
+ * in the same version). Ignored, as in the usual exclusive lists:
+ * - in-game NPC trades (they hand over the other version's Pokémon);
+ * - X/Y Friend Safari (online, identical in both versions).
+ */
+async function obtainableByGame(
+  games: GameConfig[],
+  reference: Reference,
+): Promise<Map<string, Set<number>>> {
+  const parent = new Map(reference.pokemonspecies.map((s) => [s.id, s.evolves_from_species_id]));
+  const result = new Map<string, Set<number>>();
+  for (const game of games) {
+    const { pokemonspecies } = await gql<{ pokemonspecies: { id: number }[] }>(
+      `query ($versions: [String!]) {
+        pokemonspecies(where: { pokemons: { encounters: {
+          version: { name: { _in: $versions } },
+          encounterslot: { encountermethod: { name: { _neq: "npc-trade" } } },
+          locationarea: { name: { _nlike: "friend-safari%" } }
+        } } }) { id }
+      }`,
+      { versions: game.encounterVersions },
+    );
+    const direct = new Set(pokemonspecies.map((s) => s.id));
+    const obtainable = new Set<number>();
+    for (const id of parent.keys()) {
+      for (let x: number | null | undefined = id; x; x = parent.get(x)) {
+        if (direct.has(x)) {
+          obtainable.add(id);
+          break;
+        }
+      }
+    }
+    result.set(game.id, obtainable);
+  }
+  return result;
+}
+
+/** Marks species obtainable in exactly one of the sibling games. Returns how many were marked. */
+export function applyExclusives(
+  entries: CatalogEntry[],
+  obtainable: Map<string, Set<number>>,
+): number {
+  let count = 0;
+  for (const entry of entries) {
+    const games = [...obtainable.entries()].filter(([, set]) => set.has(entry.id)).map(([g]) => g);
+    if (games.length === 1) {
+      entry.exclusiveTo = games[0];
+      count += 1;
+    }
+  }
+  return count;
 }
 
 /** speciesId → number shown, per dex id. */
@@ -367,6 +422,7 @@ async function buildCatalog(vg: VersionGroupConfig, reference: Reference) {
       size: entries.filter((e) => e.dex[d.id] !== undefined).length,
     })),
     hasOutsideDex: entries.some((e) => e.availability === "outside-dex"),
+    exclusives: "single-version",
     entries,
   };
   const dexSet = new Set(dexSpecies);
@@ -577,7 +633,6 @@ async function main() {
     console.log(
       `[${vg.id}] ${catalog.entries.length} species, dexes ${catalog.dexes.map((d) => `${d.id}=${d.size}`).join(" ")}, ${Object.keys(index.moves).length} moves, ${Object.keys(index.machines).length} machines`,
     );
-    await writeJson(path.join(OUT_DIR, vg.id, "catalog.json"), catalog);
     await writeJson(path.join(OUT_DIR, vg.id, "moves.json"), index);
 
     const defaultDex = vg.pokedexes[0].id;
@@ -587,7 +642,8 @@ async function main() {
         .filter((e) => e.dex[defaultDex] !== undefined)
         .map((e) => e.id),
     };
-    for (const game of Object.values(GAMES).filter((g) => g.versionGroup === vg.id)) {
+    const siblings = Object.values(GAMES).filter((g) => g.versionGroup === vg.id);
+    for (const game of siblings) {
       library.games[game.id] = await measureGame(
         game,
         vg,
@@ -596,6 +652,21 @@ async function main() {
         machineStats,
       );
     }
+
+    // Exclusives only when every sibling has reliable encounter data.
+    if (siblings.length > 1) {
+      const reliable = siblings.every(
+        (g) => library.games[g.id].coverage.encounters === "complete",
+      );
+      if (reliable) {
+        const count = applyExclusives(catalog.entries, await obtainableByGame(siblings, reference));
+        catalog.exclusives = "available";
+        console.log(`[${vg.id}] ${count} version exclusives`);
+      } else {
+        catalog.exclusives = "no-encounter-data";
+      }
+    }
+    await writeJson(path.join(OUT_DIR, vg.id, "catalog.json"), catalog);
   }
 
   await writeJson(path.join(OUT_DIR, "library.json"), library);

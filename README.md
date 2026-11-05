@@ -17,8 +17,11 @@ próprio progresso. Spin-offs (Colosseum, XD, GO, Mystery Dungeon, Unite, Champi
   Armor e Crown Tundra em Sword) e, quando existirem, os compatíveis fora delas.
 - **Busca instantânea** por nome ou número (regional ou nacional) e **busca global** com atalho para
   qualquer Pokémon.
-- **Filtros**: capturados, faltando, tipo (até 2 combinados) e ordem numérica ou alfabética. Os
-  filtros ficam salvos por jogo.
+- **Filtros**: capturados, faltando, tipo (até 2 combinados), ordem numérica ou alfabética e
+  **exclusivos de versão** ("Só em Sword" / "Só em Shield"). Os filtros ficam salvos por jogo.
+- **Exclusivos de versão**: derivados dos encontros por versão da PokéAPI (ignorando trocas com NPC e
+  o Friend Safari). Cards e páginas mostram "Exclusivo de X" ou "Só em Y". Indisponível quando a
+  PokéAPI não tem encontros do jogo (Scarlet/Violet, BDSP, ORAS).
 - **Captura em um toque** direto no card, com progresso por Pokédex e por jogo.
 - **Página do Pokémon**: arte oficial, tipos, altura, peso, habilidades, texto da Pokédex do jogo,
   formas regionais, atributos base, golpes (nível, TM, TR, Egg Moves, tutor), cadeia evolutiva com
