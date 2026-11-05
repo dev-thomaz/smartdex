@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
+import { KeyboardDismiss } from "./keyboard-dismiss";
 import { StoreHydrator } from "./store-hydrator";
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -13,6 +14,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <TooltipProvider delayDuration={300}>
         <StoreHydrator />
+        <KeyboardDismiss />
         {children}
         <Toaster position="top-center" />
       </TooltipProvider>
